@@ -1,17 +1,17 @@
 import numpy as np
 
 
-def equal_group_kmeans(X, n_groups, max_iter=10, verbose=False, tol=1e-2):
+def equal_group_kmeans(X, n_groups, max_iter=10):
     """Calculate equal sized groups k-means clustering."""
 
     # Init cluster centers by randomly sampling datapoints
     centers = X[np.random.choice(len(X), n_groups, replace=False)]
 
-    # Precalculate useful numbers we will use later
+    # Precalculate n_samples
     n_samples = X.shape[0]
 
     # Init distance storage
-    distances = np.zeros(shape=(X.shape[0],))
+    distances = np.zeros(shape=(n_samples,))
 
     # Init class label array and minimum distance array
     labels = -1 * np.ones(n_samples, dtype=np.int32)
@@ -31,7 +31,7 @@ def equal_group_kmeans(X, n_groups, max_iter=10, verbose=False, tol=1e-2):
                         (X * X).sum(axis=1)[np.newaxis, :])
 
         for point_id in np.arange(n_samples):
-            # Sorts the points rows by distance
+            # Sorts the points by distance
             sorted_points = sorted([(a, b) for a, b in enumerate(all_distances[:, point_id])],
                                 key=lambda x: x[1])
 
@@ -76,7 +76,7 @@ def equal_group_kmeans(X, n_groups, max_iter=10, verbose=False, tol=1e-2):
                         labels[swap_candidate_id] = point_cluster
                         mindist[swap_candidate_id] = all_distances[point_cluster, swap_candidate_id]
 
-                        if np.absolute(mindist).sum() <  np.absolute(best_mindist).sum():
+                        if np.abs(mindist).sum() <  np.abs(best_mindist).sum():
                             # update the labels since the transfer was a success
                             best_labels, best_mindist = labels.copy(), mindist.copy()
                             break
@@ -97,10 +97,6 @@ def equal_group_kmeans(X, n_groups, max_iter=10, verbose=False, tol=1e-2):
             centers.append(np.mean(X[np.where(best_labels == group_id)[0]], 0))
         centers = np.array(centers)
 
-        # LOG
-        if verbose:
-            print("Iteration %2d, inertia %.3f" % (i, inertia))
-
         # UPDATE RETURN VALUES
         if best_inertia is None or inertia < best_inertia:
             best_labels = labels.copy()
@@ -108,13 +104,7 @@ def equal_group_kmeans(X, n_groups, max_iter=10, verbose=False, tol=1e-2):
             best_inertia = inertia
 
     # Test group sizes and raise AssertionError on non-uniform group sizes
-    best_group_sizes = []
-    for group_id in range(n_groups):
-        best_group_sizes.append(int(len(np.where(best_labels == group_id)[0])))
-    try:
-        assert best_group_sizes == [len(X) // n_groups] * n_groups
-    except AssertionError as e:
-        print('Unequal group sizes: {}'.format(best_group_sizes))
-        raise e
-
+    best_group_sizes = [len(np.where(best_labels == group_id)[0]) for
+                        group_id in range(n_groups)]
+    assert best_group_sizes == [len(X) // n_groups] * n_groups
     return best_centers, best_labels, best_inertia, best_group_sizes, i + 1
